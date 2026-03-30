@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metro Explorer | Hidden Gems</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    body { margin: 0; padding: 20px; font-family: 'Space Grotesk', sans-serif; background-color: #c3cdbe; min-height: 100vh; display: flex; flex-direction: column; align-items: center; color: #000000; }
+    .header { margin-top: 20px; text-align: center; }
+    .header h1 { font-size: 3em; font-weight: 700; margin-bottom: 0; text-transform: uppercase; letter-spacing: -2px; }
+    .header p { font-size: 1.2em; font-weight: 600; background: #ffffff; display: inline-block; padding: 5px 15px; border: 3px solid #000000; box-shadow: 3px 3px 0px #000000; }
+    
+    /* Navigation Tabs */
+    .nav-tabs { display: flex; gap: 10px; margin-top: 20px; }
+    .nav-btn { background: #ffffff; border: 3px solid #000; padding: 10px 20px; font-weight: 700; cursor: pointer; box-shadow: 3px 3px 0px #000; text-transform: uppercase; }
+    .nav-btn.active { background: #c7bf75; transform: translate(2px, 2px); box-shadow: 1px 1px 0px #000; }
+
+    .card { background: #ffffff; padding: 32px; width: 90%; max-width: 420px; border: 3px solid #000000; box-shadow: 6px 6px 0px #000000; margin: 20px 0; position: relative; }
+    #loader-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #fce83a; z-index: 10; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 1.5rem; text-transform: uppercase; border-bottom: 3px solid #000000; flex-direction: column; }
+    
+    .form-group { margin-bottom: 24px; }
+    label { display: block; font-weight: 700; font-size: 1rem; margin-bottom: 8px; text-transform: uppercase; }
+    input, select, textarea { width: 100%; padding: 14px; border: 3px solid #000000; font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; outline: none; box-sizing: border-box; background-color: #ffffff; box-shadow: 3px 3px 0px #000000; }
+    input:focus, select:focus, textarea:focus { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #000000; background-color: #c9c181; }
+    
+    .btn-primary { background: #b3af8b; color: #000000; border: 3px solid #000000; width: 100%; padding: 16px; font-size: 1.2rem; font-weight: 700; text-transform: uppercase; cursor: pointer; box-shadow: 6px 6px 0px #000000; transition: all 0.1s ease; }
+    .btn-primary:hover { background: #ffffff; transform: translate(-2px, -2px); box-shadow: 8px 8px 0px #000000; }
+    .btn-primary:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0px #000000; }
+    .btn-primary:disabled { background: #cccccc; cursor: not-allowed; transform: none; box-shadow: 6px 6px 0px #000000; }
+    
+    #map-container { width: 90%; max-width: 800px; height: 500px; border: 3px solid #000000; box-shadow: 6px 6px 0px #000000; margin-bottom: 40px; display: none; background: #ffffff; }
+    #map { width: 100%; height: 100%; z-index: 1; }
+    
+    /* Dashboard Styles */
+    #dashboard-view { display: none; width: 90%; max-width: 600px; }
+    .history-item { border: 3px solid #000; padding: 15px; margin-bottom: 15px; background: #fff; box-shadow: 4px 4px 0px #000; }
+    .history-item h3 { margin: 0 0 5px 0; color: #8dacc6; }
+    
+    /* Footer Styles */
+    .footer { margin-top: auto; width: 100%; max-width: 800px; border-top: 4px solid #000; padding-top: 20px; padding-bottom: 40px; text-align: center; }
+    .footer-box { background: #77b08c; padding: 20px; border: 3px solid #000; box-shadow: 6px 6px 0px #000; text-align: left; }
+
+    #toast { visibility: hidden; min-width: 250px; background-color: #000000; color: #ffffff; border: 3px solid #ffffff; text-align: center; font-weight: 700; padding: 16px; position: fixed; z-index: 2000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 1rem; box-shadow: 6px 6px 0px #000000; }
+    #toast.show { visibility: visible; }
+
+    .popup-wrapper { font-family: 'Space Grotesk', sans-serif; font-weight: 700; text-align: center; min-width: 180px; }
+    .popup-desc { font-size: 0.9rem; font-weight: 400; margin-bottom: 10px; }
+    .popup-btn { background: #568969; color: #000000; border: 2px solid #000000; padding: 8px; width: 100%; font-weight: 700; cursor: pointer; box-shadow: 2px 2px 0px #000000; }
+  </style>
+</head>
+<body>
+
+  <div id="toast">Message here</div>
+  <div class="header"><h1>Metro Explorer</h1><p>Find Real Landmarks. No Fakes.</p></div>
+
+  <div class="nav-tabs">
+    <button class="nav-btn active" id="tab-explore" onclick="switchTab('explore')">Explore Map</button>
+    <button class="nav-btn" id="tab-dashboard" onclick="switchTab('dashboard')">My Profile</button>
+  </div>
+
+  <!-- EXPLORE VIEW -->
+  <div id="explore-view" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div class="card">
+      <div id="loader-overlay"><div>Fetching DB...</div></div>
+      <div class="form-group"><label>Your Email ID</label><input type="email" id="email" placeholder="explorer@example.com" required></div>
+      <div class="form-group"><label>From Station</label><select id="source" disabled><option value="" disabled selected>Loading...</option></select></div>
+      <div class="form-group"><label>To Station</label><select id="destination" disabled><option value="" disabled selected>Loading...</option></select></div>
+      <button class="btn-primary" id="searchBtn" onclick="findSpot()" disabled>Find Hidden Gems</button>
+    </div>
+    <div id="map-container"><div id="map"></div></div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashboard-view">
+    <div class="card" style="max-width: 100%;">
+      <h2>Your Explorer Profile</h2>
+      <div class="form-group">
+        <input type="email" id="dash-email" placeholder="Enter email to load history...">
+        <button class="btn-primary" style="margin-top: 10px;" onclick="loadHistory()">Load History</button>
+      </div>
+      <div id="history-container">
+        <p>Enter your email to see places you've visited.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER: COMMUNITY SUGGESTIONS -->
+  <div class="footer">
+    <div class="footer-box">
+      <h2 style="margin-top:0;">Know a Secret Spot?</h2>
+      <p>Help the community! Suggest a place that isn't on Google Maps.</p>
+      <div class="form-group"><input type="text" id="sug-place" placeholder="Search for forgotten ruins, secret cafes, or unmapped alleys..."></div>
+      <div class="form-group"><input type="text" id="sug-station" placeholder="Nearest Metro Station"></div>
+      <div class="form-group"><textarea id="sug-desc" rows="2" placeholder="Why is it special?"></textarea></div>
+      <button class="btn-primary" style="background: #fff;" onclick="submitSuggestion()">Submit to Community</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map = null; let markersLayer = null; 
+    let stationCoords = {}; let currentEmail = "";
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.innerText = msg; toast.className = "show";
+      setTimeout(() => toast.className = toast.className.replace("show", ""), 4000);
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tab-explore').classList.remove('active');
+      document.getElementById('tab-dashboard').classList.remove('active');
+      document.getElementById('explore-view').style.display = 'none';
+      document.getElementById('dashboard-view').style.display = 'none';
+      
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById(tab + '-view').style.display = tab === 'explore' ? 'flex' : 'block';
+      
+      if(tab === 'dashboard' && document.getElementById('email').value) {
+        document.getElementById('dash-email').value = document.getElementById('email').value;
+        loadHistory();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(data => {
+        if (data.success) {
+          data.stations.forEach(st => stationCoords[st.name] = [st.lat, st.lon]);
+          const stations = Object.keys(stationCoords).sort();
+          const sourceDrop = document.getElementById('source'); const destDrop = document.getElementById('destination');
+          sourceDrop.innerHTML = '<option value="" disabled selected>Select Source...</option>'; 
+          destDrop.innerHTML = '<option value="" disabled selected>Select Destination...</option>';
+          stations.forEach(st => { sourceDrop.add(new Option(st, st)); destDrop.add(new Option(st, st)); });
+          
+          document.getElementById('loader-overlay').style.display = 'none';
+          document.getElementById('source').disabled = false;
+          document.getElementById('destination').disabled = false;
+          document.getElementById('searchBtn').disabled = false;
+        } else showToast("DB ERROR: " + data.message);
+      }).getMetroData();
+    });
+
+    function findSpot() {
+      const email = document.getElementById('email').value.trim(); 
+      const destination = document.getElementById('destination').value;
+      const btn = document.getElementById('searchBtn');
+      
+      if(!email || !email.includes('@')) return showToast("Enter a valid email!"); 
+      if(!destination) return showToast("Please select a destination!");
+      
+      currentEmail = email;
+      btn.disabled = true; btn.innerText = 'Asking AI for Secrets...';
+      const coords = stationCoords[destination];
+      
+      if (coords) {
+        initMap(coords[0], coords[1]);
+        
+        // calling gemini via api 
+        google.script.run.withSuccessHandler(res => {
+          btn.disabled = false; btn.innerText = 'Find Hidden Gems';
+          markersLayer.clearLayers();
+          
+          if(res.success && res.places.length > 0) {
+            res.places.forEach(place => createMarker(place, destination, email));
+            const group = new L.featureGroup(markersLayer.getLayers()); map.fitBounds(group.getBounds().pad(0.1));
+            showToast("AI found " + res.places.length + " hidden gems!");
+          } else {
+            showToast(res.message || "AI couldn't find anything here.");
+          }
+        }).withFailureHandler(err => {
+          btn.disabled = false; btn.innerText = 'Find Hidden Gems';
+          showToast("Network Error calling AI.");
+        }).getHiddenGemsFromGemini(destination, coords[0], coords[1]);
+      }
+    }
+
+    function initMap(lat, lon) {
+      document.getElementById('map-container').style.display = 'block';
+      if (!map) {
+        map = L.map('map').setView([lat, lon], 14); 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map); 
+        markersLayer = L.layerGroup().addTo(map); 
+      } else map.setView([lat, lon], 14);
+    }
+
+    function createMarker(place, stationName, email) {
+      const marker = L.marker([place.lat, place.lon]);
+      const safeName = place.name.replace(/'/g, "\\'"); 
+      const safeStation = stationName.replace(/'/g, "\\'");
+      
+      const popupContent = `
+        <div class='popup-wrapper'>
+          <h3 style="margin:0 0 5px 0; border-bottom: 2px solid #000;">${place.name}</h3>
+          <p class="popup-desc">${place.description}</p>
+          <button class='popup-btn' onclick="markVisited('${safeName}', '${safeStation}')">I Visited Here!</button>
+        </div>`;
+      marker.bindPopup(popupContent); markersLayer.addLayer(marker); 
+    }
+
+    window.markVisited = function(placeName, stationName) {
+      showToast("Saving visit...");
+      google.script.run.withSuccessHandler(res => {
+        if(res.success) showToast("Saved! Check your email inbox.");
+      }).recordVisit({ email: currentEmail, place: placeName, station: stationName });
+    }
+
+    // dashboard logic
+    function loadHistory() {
+      const email = document.getElementById('dash-email').value.trim();
+      if(!email) return showToast("Enter email first.");
+      
+      const container = document.getElementById('history-container');
+      container.innerHTML = "<em>Loading your adventures...</em>";
+      
+      google.script.run.withSuccessHandler(res => {
+        if(res.success) {
+          if(res.history.length === 0) {
+            container.innerHTML = "<p>You haven't visited any gems yet. Go explore!</p>";
+            return;
+          }
+          container.innerHTML = res.history.map(h => `
+            <div class="history-item">
+              <h3>${h.place}</h3>
+              <p style="margin:0;"><strong>Station:</strong> ${h.station} <br><strong>Date:</strong> ${h.date}</p>
+            </div>
+          `).join('');
+        }
+      }).getHistory(email);
+    }
+
+    // suggestion logic
+    function submitSuggestion() {
+      const email = document.getElementById('email').value || document.getElementById('dash-email').value;
+      const place = document.getElementById('sug-place').value;
+      const station = document.getElementById('sug-station').value;
+      const desc = document.getElementById('sug-desc').value;
+
+      if(!email) return showToast("Please enter your email at the top first!");
+      if(!place || !station) return showToast("Fill in the place and station!");
+
+      showToast("Submitting to community...");
+      google.script.run.withSuccessHandler(res => {
+        if(res.success) {
+          showToast("Thanks! Your gem is under review.");
+          document.getElementById('sug-place').value = '';
+          document.getElementById('sug-desc').value = '';
+        }
+      }).suggestGem({ email: email, place: place, station: station, description: desc });
+    }
+  </script>
+</body>
+</html>

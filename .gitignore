@@ -1,0 +1,6 @@
+# Google Apps Script local config
+.clasp.json
+
+# Node modules (if you use npm later)
+node_modules/
+.env
